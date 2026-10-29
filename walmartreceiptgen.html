@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Walmart receipt generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --host-bg:#f4f4f6;--host-card:#fff;--host-fg:#111827;--host-fg-muted:#6b7280;
+  --host-input:#fff;--host-border:#e5e7eb;--host-border-hover:#9ca3af;--host-primary:#0071dc;
+  --host-secondary:#f3f4f6;--host-secondary-fg:#111827;--host-success:#15803d;--host-error:#dc2626;
+}
+@media (prefers-color-scheme:dark){
+  :root{--host-bg:#111114;--host-card:#1b1b1f;--host-fg:#f3f4f6;--host-fg-muted:#9ca3af;
+        --host-input:#232327;--host-border:#33333a;--host-border-hover:#55555f;
+        --host-secondary:#26262b;--host-secondary-fg:#f3f4f6;}
+}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;font-family:Inter,system-ui,sans-serif;background:var(--host-bg);color:var(--host-fg)}
+.app{display:grid;grid-template-columns:288px 1fr;gap:14px;align-items:start;width:700px;max-width:100%;margin:0 auto}
+.panel{background:var(--host-card);border:1px solid var(--host-border);border-radius:12px;padding:12px;color:var(--host-fg)}
+.panel h1{font-size:15px;margin:0 0 2px;font-weight:600}
+.panel .sub{font-size:11px;color:var(--host-fg-muted);margin-bottom:10px;line-height:1.35}
+details{border-top:1px solid var(--host-border);padding:8px 0}
+details:first-of-type{border-top:0}
+summary{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--host-fg-muted);cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-weight:700}
+details[open] summary::after{content:"–"}
+label{display:block;font-size:10px;color:var(--host-fg-muted);margin:6px 0 2px}
+input,select,textarea{width:100%;background:var(--host-input);border:1px solid var(--host-border);color:var(--host-fg);border-radius:6px;padding:5px 6px;font-size:11.5px;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--host-border-hover)}
+textarea{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;resize:vertical}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.row3{display:grid;grid-template-columns:1.2fr .6fr .8fr auto;gap:5px;align-items:end;margin-bottom:5px}
+button{font-family:inherit;font-size:11px;border-radius:6px;border:1px solid var(--host-border);background:var(--host-secondary);color:var(--host-secondary-fg);padding:6px 8px;cursor:pointer}
+button:hover{border-color:var(--host-border-hover)}
+button.primary{background:var(--host-primary);color:#fff;border-color:transparent;font-weight:600}
+button.mini{padding:4px 6px;font-size:10px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.status{font-size:10.5px;color:var(--host-fg-muted);margin-top:6px;line-height:1.4;min-height:12px}
+.status.err{color:var(--host-error)}
+.status.ok{color:var(--host-success)}
+.stage{display:flex;justify-content:center;padding:4px 0 24px}
+#paper{filter:drop-shadow(0 10px 26px rgba(0,0,0,.35))}
+.receipt{background:#fbfaf5;color:#191512;font-family:"Courier Prime","Courier New",ui-monospace,monospace;font-size:11px;font-weight:700;line-height:1.36;padding:14px 12px 12px;position:relative;letter-spacing:-.1px}
+.receipt.store{width:340px}
+.receipt::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:repeating-linear-gradient(0deg,rgba(110,100,80,.05) 0 1px,transparent 1px 2px);opacity:.85}
+.ctr{text-align:center}
+.fb{font-size:10px;line-height:1.3}
+.wordmark{display:flex;align-items:center;justify-content:center;gap:4px;font-family:Inter,system-ui,sans-serif;font-weight:700;letter-spacing:-.9px;font-size:23px;margin:5px 0 4px}
+.spark{width:16px;height:16px;flex:none;margin-top:2px}
+.addr{font-size:11px;line-height:1.32}
+.mgr{font-size:10.5px}
+.ln{display:flex;justify-content:space-between;gap:6px;font-size:10.5px;margin-top:2px}
+.itemsold{text-align:center;font-size:10.5px}
+.tcline{font-size:10.5px;letter-spacing:.02em;margin-top:1px}
+.barcode{text-align:center;margin:4px 0 4px}
+.barcode canvas{display:block;width:100%;height:52px;image-rendering:pixelated}
+.itm{display:grid;grid-template-columns:minmax(0,1fr) 74px 38px 9px;column-gap:3px;font-size:10.5px;line-height:1.34}
+.itm .nm{text-transform:uppercase;overflow:hidden;white-space:nowrap;text-overflow:clip;min-width:0}
+.itm .up{font-size:9.8px;letter-spacing:-.25px;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden}
+.itm .pr{white-space:nowrap;font-variant-numeric:tabular-nums}
+.itm .pr,.itm .x{text-align:right}
+.tt{display:grid;grid-template-columns:1fr 56px;font-size:11px;line-height:1.42}
+.tt .l{text-align:right;padding-right:6px}
+.tt .v{text-align:right;font-variant-numeric:tabular-nums}
+.pay{font-size:10.5px;line-height:1.42}
+.pay .card{margin-top:3px}
+.chg{display:grid;grid-template-columns:1fr 56px;font-size:11px}
+.chg .l{text-align:right;padding-right:6px}
+.chg .v{text-align:right}
+.tag{text-align:center;font-size:10.5px;margin:4px 0 1px}
+.copy{text-align:center;font-size:11px;margin-top:3px}
+.promo{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:7px;border-top:1px solid #d8d2c2;padding-top:8px}
+.promo .qr{width:76px;height:76px;background:#fff;display:flex;align-items:center;justify-content:center}
+.promo .qr canvas,.promo .qr img{width:76px!important;height:76px!important;display:block}
+.promo .pt{font-size:10.5px;line-height:1.32;text-align:center}
+.ps{font-size:9.5px;text-align:center;margin-top:5px}
+.receipt.online{width:420px;background:#fff;font-family:Inter,system-ui,sans-serif;font-size:12px;font-weight:400;line-height:1.45;padding:0 0 20px;letter-spacing:0}
+.on-head{background:#0071dc;padding:14px 16px 13px}
+.on-head .wordmark{justify-content:flex-start;color:#fff;font-size:20px;margin:0;letter-spacing:-.6px}
+.on-body{padding:0 16px}
+.on-title{font-size:16px;font-weight:700;margin:14px 0 3px;color:#1a1a1a}
+.on-sub{font-size:11.5px;color:#5c5c5c;margin-bottom:10px}
+.on-box{border:1px solid #e3e3e3;border-radius:10px;padding:9px 11px;margin-bottom:10px;font-size:11.5px;color:#2b2b2b;background:#fafafa}
+.on-box .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:#7a7a7a;margin-bottom:1px}
+.on-item{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid #eee}
+.on-item img{width:52px;height:52px;object-fit:contain;border-radius:6px;background:#f4f4f4;flex:none}
+.on-item .nm{font-size:11.5px;line-height:1.35;color:#1a1a1a}
+.on-item .pr{font-size:12px;font-weight:700;margin-top:3px}
+.on-item .qd{font-size:10px;color:#7a7a7a}
+.on-tot{display:flex;justify-content:space-between;font-size:11.5px;color:#3a3a3a;padding:2px 0}
+.on-tot.g{font-weight:700;font-size:14px;color:#1a1a1a;border-top:1px solid #ddd;margin-top:6px;padding-top:6px}
+.on-foot{border-top:1px solid #eee;margin-top:12px;padding-top:9px;font-size:10px;color:#7a7a7a;line-height:1.55;text-align:center}
+@media print{
+  body{background:#fff;padding:0}
+  .panel{display:none}
+  .app{display:block;width:auto}
+  .stage{justify-content:flex-start;padding:0}
+  #paper{filter:none}
+  @page{margin:0}
+}
+@media (max-width:640px){.app{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="app">
+<aside class="panel">
+  <h1>Receipt generator</h1>
+  <div class="sub">Paste a walmart.com product URL to pull the item, or type it all in.</div>
+
+  <details><summary>Import from walmart.com</summary>
+    <label>Product URL</label><input id="url" placeholder="https://www.walmart.com/ip/.../123456789">
+    <div class="btnrow"><button class="primary" id="fetch">Fetch item</button><button id="pasteToggle">Paste source</button></div>
+    <div id="pasteWrap" style="display:none">
+      <label>Page source / jina markdown</label><textarea id="src" rows="4"></textarea>
+      <button class="mini" id="parsePaste" style="margin-top:5px">Parse pasted text</button>
+    </div>
+    <div class="status" id="status"></div>
+  </details>
+
+  <details open><summary>Template</summary>
+    <select id="template">
+      <option value="store">In-store register receipt</option>
+      <option value="online">Walmart.com order confirmation</option>
+    </select>
+  </details>
+
+  <details open><summary>Store / location</summary>
+    <div class="row2"><div><label>Store #</label><input data-bind="store.num"></div><div><label>Phone</label><input data-bind="store.phone"></div></div>
+    <label>Street</label><input data-bind="store.street">
+    <div class="row2"><div><label>City</label><input data-bind="store.city"></div><div><label>State / ZIP</label><input data-bind="store.sz"></div></div>
+    <label>Manager</label><input data-bind="meta.mgr">
+  </details>
+
+  <details open><summary>Transaction</summary>
+    <div class="row2"><div><label>Date</label><input data-bind="meta.date" type="date"></div><div><label>Time</label><input data-bind="meta.time" type="time" step="1"></div></div>
+    <div class="row2"><div><label>OP#</label><input data-bind="meta.op"></div><div><label>TE#</label><input data-bind="meta.te"></div></div>
+    <div class="row2"><div><label>TR#</label><input data-bind="meta.tr"></div><div><label>Feedback ID</label><input data-bind="meta.fb"></div></div>
+    <label>TC# (barcode)</label><input data-bind="meta.tc">
+    <label>Copy type</label>
+    <select data-bind="meta.copy"><option>CUSTOMER COPY</option><option>MERCHANT COPY</option><option>STORE COPY</option></select>
+    <button class="mini" id="rand" style="margin-top:6px">Randomize transaction</button>
+  </details>
+
+  <details open><summary>Items</summary>
+    <div id="editor"></div>
+    <button class="mini" id="addItem" style="margin-top:4px">+ Add line</button>
+  </details>
+
+  <details open><summary>Totals &amp; card</summary>
+    <div class="row2"><div><label>Tax rate %</label><input data-bind="taxRate" type="number" step="0.001"></div><div><label>Tendered</label><input data-bind="tendered" type="number" step="0.01"></div></div>
+    <div class="row2"><div><label>Issuer</label><input data-bind="pay.issuer"></div><div><label>Network</label><input data-bind="pay.method"></div></div>
+    <div class="row2"><div><label>Last 4</label><input data-bind="pay.last4" maxlength="4"></div><div><label>Approval #</label><input data-bind="pay.auth"></div></div>
+    <div class="row2"><div><label>Ref #</label><input data-bind="pay.ref"></div><div><label>Terminal #</label><input data-bind="pay.term"></div></div>
+    <div class="row2"><div><label>Trans ID</label><input data-bind="pay.trans"></div><div><label>Validation</label><input data-bind="pay.val"></div></div>
+    <div class="row2"><div><label>AID</label><input data-bind="pay.aid"></div><div><label>AAC</label><input data-bind="pay.aac"></div></div>
+  </details>
+
+  <details><summary>Customer (online only)</summary>
+    <label>Name</label><input data-bind="cust.name">
+    <label>Address</label><input data-bind="cust.addr">
+    <div class="row2"><div><label>City</label><input data-bind="cust.city"></div><div><label>State / ZIP</label><input data-bind="cust.sz"></div></div>
+    <label>Order number</label><input data-bind="cust.order">
+    <label>Arrives</label><input data-bind="cust.arrives">
+  </details>
+
+  <div class="btnrow" style="grid-template-columns:1fr"><button class="primary" id="png">Download PNG</button></div>
+  <div class="btnrow"><button id="print">Print</button><button id="reset">Reset</button></div>
+</aside>
+
+<main class="stage"><div id="paper"></div></main>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const PETALS=`<g><ellipse cx="50" cy="18" rx="7.5" ry="17"/><ellipse cx="50" cy="18" rx="7.5" ry="17" transform="rotate(60 50 50)"/><ellipse cx="50" cy="18" rx="7.5" ry="17" transform="rotate(120 50 50)"/><ellipse cx="50" cy="18" rx="7.5" ry="17" transform="rotate(180 50 50)"/><ellipse cx="50" cy="18" rx="7.5" ry="17" transform="rotate(240 50 50)"/><ellipse cx="50" cy="18" rx="7.5" ry="17" transform="rotate(300 50 50)"/></g>`;
+const SPARK=`<svg class="spark" viewBox="0 0 100 100"><g fill="#3a3a3a">${PETALS}</g></svg>`;
+const SPARK_Y=`<svg class="spark" viewBox="0 0 100 100"><g fill="#ffc220">${PETALS}</g></svg>`;
+
+/* ---- Code 128 pattern table (values 0-106) ---- */
+const C128={0:'212222',1:'222122',2:'222221',3:'121223',4:'121322',5:'131222',6:'122213',7:'122312',8:'132212',9:'221213',10:'221312',11:'231212',12:'112232',13:'122132',14:'122231',15:'113222',16:'123122',17:'123221',18:'223211',19:'221132',20:'221231',21:'213212',22:'223112',23:'312131',24:'311222',25:'321122',26:'321221',27:'312212',28:'322112',29:'322211',30:'212123',31:'212321',32:'232121',33:'111323',34:'131123',35:'131321',36:'112313',37:'132113',38:'132311',39:'211313',40:'231113',41:'231311',42:'112133',43:'112331',44:'132131',45:'113123',46:'113321',47:'133121',48:'313121',49:'211331',50:'231131',51:'213113',52:'213311',53:'213131',54:'311123',55:'311321',56:'331121',57:'312113',58:'312311',59:'332111',60:'314111',61:'221411',62:'431111',63:'111224',64:'111422',65:'121124',66:'121421',67:'141122',68:'141221',69:'112214',70:'112412',71:'122114',72:'122411',73:'142112',74:'142211',75:'241211',76:'221114',77:'413111',78:'241112',79:'134111',80:'111242',81:'121142',82:'121241',83:'114212',84:'124112',85:'124211',86:'411212',87:'421112',88:'421211',89:'212141',90:'214121',91:'412121',92:'111143',93:'111341',94:'131141',95:'114113',96:'114311',97:'411113',98:'411311',99:'113141',100:'114131',101:'311141',102:'411131',103:'211412',104:'211214',105:'211232',106:'2331112'};
+
+function code128(data){
+  const clean=String(data).replace(/[^\x20-\x7e]/g,'');
+  if(!clean)return [];
+  let seq;
+  if(/^\d+$/.test(clean)&&clean.length%2===0){
+    seq=[105];
+    for(let i=0;i<clean.length;i+=2)seq.push(parseInt(clean.substr(i,2),10));
+  }else{
+    seq=[104];
+    for(const ch of clean){const v=ch.charCodeAt(0)-32;seq.push(v<0||v>94?0:v);}
+  }
+  let sum=seq[0];
+  for(let i=1;i<seq.length;i++)sum+=i*seq[i];
+  seq.push(sum%103,106);
+  return seq.map(v=>C128[v]);
+}
+
+function drawBarcode(cv,data){
+  const pats=code128(data);
+  if(!pats.length)return;
+  const W=cv.parentElement.clientWidth||316, H=52, S=4;
+  cv.width=W*S; cv.height=H*S;
+  const x=cv.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,cv.width,cv.height);
+  x.fillStyle='#000';
+  const modules=pats.reduce((a,p)=>a+[...p].reduce((b,d)=>b+ +d,0),0);
+  const quiet=8;
+  const mw=(W*S-2*quiet*S)/modules;
+  let pos=quiet*S;
+  for(const p of pats){
+    for(let i=0;i<p.length;i++){
+      const w=+p[i]*mw;
+      if(i%2===0)x.fillRect(Math.round(pos),0,Math.max(1,Math.round(w)),cv.height);
+      pos+=w;
+    }
+  }
+}
+
+const base=()=>({
+  template:'store',
+  store:{num:'00971',phone:'608-637-8511',street:'1133 N MAIN ST',city:'VIROQUA',sz:'WI 54665'},
+  meta:{date:new Date().toISOString().slice(0,10),time:'11:12:24',op:'000094',te:'15',tr:'04338',fb:'7TLSFXBJ2KR',tc:'3508 8666 7477 4217 2925',mgr:'RICHARD',copy:'CUSTOMER COPY'},
+  items:[
+    {name:'4FT CF TBL',upc:'695957660100',qty:1,price:34.88,img:''},
+    {name:'RED WINE 4PK',upc:'694722582081',qty:1,price:9.96,img:''},
+    {name:'MS 8PC DRINK',upc:'007644014026',qty:1,price:6.97,img:''},
+    {name:'OVEN MITTS',upc:'071441572790',qty:1,price:6.97,img:''}
+  ],
+  taxRate:5.5,tendered:0,
+  pay:{issuer:'CHASE',method:'VISA',last4:'5611',auth:'06736G',ref:'1042000314',term:'53608840',trans:'304139583448280',val:'HH99',aid:'A0000000031010',aac:'106B496811C1DF86'},
+  cust:{name:'Jordan Miller',addr:'4820 W Camelback Rd, Apt 14',city:'Phoenix',sz:'AZ 85031',order:'2000-1147-8832',arrives:'Nov 2 by 8pm'}
+});
+let S=base();
+const money=n=>(Math.round(n*100)/100).toFixed(2);
+const sub=()=>S.items.reduce((a,i)=>a+(+i.qty||0)*(+i.price||0),0);
+const tax=()=>sub()*(+S.taxRate||0)/100;
+const total=()=>sub()+tax();
+const tendered=()=>(+S.tendered>0?+S.tendered:total());
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const mmdd=d=>{const x=new Date(d+'T12:00:00');return isNaN(x)?'':x.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'2-digit'})};
+
+function tear(w){
+  const p=[];const st=5;
+  for(let x=0;x<=w;x+=st)p.push(x+'px '+((x/st)%2?0:5)+'px');
+  for(let x=w;x>=0;x-=st)p.push(x+'px '+(x%2?'calc(100% - 5px)':'100%'));
+  return 'polygon('+p.join(',')+')';
+}
+
+function fallbackQR(el,seed){
+  const n=25,s=3,c=document.createElement('canvas');c.width=c.height=n*s;
+  const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';
+  let h=0;for(const ch of seed)h=(h*31+ch.charCodeAt(0))>>>0;
+  const rnd=()=>{h^=h<<13;h^=h>>>17;h^=h<<5;h>>>=0;return h/4294967296};
+  for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(rnd()>.52)x.fillRect(i*s,j*s,s,s);
+  const eye=(a,b)=>{x.fillStyle='#000';x.fillRect(a*s,b*s,7*s,7*s);x.fillStyle='#fff';x.fillRect((a+1)*s,(b+1)*s,5*s,5*s);x.fillStyle='#000';x.fillRect((a+2)*s,(b+2)*s,3*s,3*s)};
+  eye(0,0);eye(n-7,0);eye(0,n-7);
+  el.appendChild(c);
+}
+
+function renderPaper(){
+  const p=$('#paper');
+  p.innerHTML=S.template==='store'?storeHTML():onlineHTML();
+  p.querySelector('.receipt').style.clipPath=tear(S.template==='store'?340:420);
+  if(S.template==='store'){
+    const bcv=p.querySelector('#bc');
+    if(bcv)drawBarcode(bcv,S.meta.tc.replace(/\s/g,''));
+    const q=$('#qrc'),url='https://www.walmart.com/plus?store='+S.store.num;
+    if(q){ if(window.QRCode){ try{new QRCode(q,{text:url,width:76,height:76,correctLevel:QRCode.CorrectLevel.M});}catch(e){fallbackQR(q,url);} } else fallbackQR(q,url); }
+  }
+}
+
+function storeHTML(){
+  const items=S.items.map(i=>`<div class="itm"><span class="nm">${esc(i.name)}</span><span class="up">${esc(i.upc)}</span><span class="pr">${money((+i.qty)*(+i.price))}</span><span class="x">X</span></div>`).join('');
+  return `<div class="receipt store">
+    <div class="ctr fb">Give us feedback @ survey.walmart.com<br>Thank you! ID #:${esc(S.meta.fb)}</div>
+    <div class="wordmark">Walmart${SPARK}</div>
+    <div class="ctr mgr">${esc(S.store.phone)} Mgr:${esc(S.meta.mgr)}</div>
+    <div class="ctr addr">${esc(S.store.street)}<br>${esc(S.store.city)} ${esc(S.store.sz)}</div>
+    <div class="ln"><span>ST# ${esc(S.store.num)}</span><span>OP# ${esc(S.meta.op)}</span><span>TE# ${esc(S.meta.te)}</span><span>TR# ${esc(S.meta.tr)}</span></div>
+    <div class="itemsold"># ITEMS SOLD ${S.items.length}</div>
+    <div class="ctr tcline">TC# ${esc(S.meta.tc)}</div>
+    <div class="barcode"><canvas id="bc"></canvas></div>
+    ${items}
+    <div class="tt">
+      <span class="l">SUBTOTAL</span><span class="v">${money(sub())}</span>
+      <span class="l">TAX 1 &nbsp;${(+S.taxRate).toFixed(3)} %</span><span class="v">${money(tax())}</span>
+      <span class="l">TOTAL</span><span class="v">${money(total())}</span>
+      <span class="l">${esc(S.pay.method)} TEND</span><span class="v">${money(tendered())}</span>
+    </div>
+    <div class="pay">
+      <div class="card">${esc(S.pay.issuer)} ${esc(S.pay.method)} &nbsp;**** **** **** ${esc(S.pay.last4)} I 1</div>
+      <div>APPROVAL # ${esc(S.pay.auth)}</div><div>REF # ${esc(S.pay.ref)}</div>
+      <div>TRANS ID - ${esc(S.pay.trans)}</div><div>VALIDATION - ${esc(S.pay.val)}</div>
+      <div>PAYMENT SERVICE - E</div><div>AID ${esc(S.pay.aid)}</div>
+      <div>AAC ${esc(S.pay.aac)}</div><div>TERMINAL # ${esc(S.pay.term)}</div>
+      <div>*NO SIGNATURE REQUIRED</div>
+    </div>
+    <div class="ctr" style="margin-top:3px">${esc(mmdd(S.meta.date))} &nbsp; ${esc(S.meta.time)}</div>
+    <div class="chg"><span class="l">CHANGE DUE</span><span class="v">${money(Math.max(0,tendered()-total()))}</span></div>
+    <div class="tag">Low Prices You Can Trust. Every Day.</div>
+    <div class="ctr">${esc(mmdd(S.meta.date))} &nbsp; ${esc(S.meta.time)}</div>
+    <div class="copy">***${esc(S.meta.copy)}***</div>
+    <div class="promo">
+      <div class="qr" id="qrc"></div>
+      <div class="pt"><b>Get free delivery from this store with Walmart+</b></div>
+      <div class="ps">Scan for 30-day free trial.</div>
+    </div>
+  </div>`;
+}
+
+function onlineHTML(){
+  return `<div class="receipt online">
+    <div class="on-head"><div class="wordmark">${SPARK_Y}Walmart</div></div>
+    <div class="on-body">
+      <div class="on-title">Thanks for your order, ${esc(S.cust.name.split(' ')[0]||'Jordan')}!</div>
+      <div class="on-sub">Your order is confirmed and we're getting it ready.</div>
+      <div class="on-box"><div class="k">Order number</div>${esc(S.cust.order)}<div class="k" style="margin-top:6px">Placed</div>${esc(mmdd(S.meta.date))} at ${esc(S.meta.time)}</div>
+      <div class="on-box"><div class="k">Arrives</div><b>${esc(S.cust.arrives)}</b><div class="k" style="margin-top:6px">Shipping to</div>${esc(S.cust.name)}<br>${esc(S.cust.addr)}<br>${esc(S.cust.city)}, ${esc(S.cust.sz)}</div>
+      <div class="on-box" style="padding:0 11px;background:#fff"><div class="k" style="padding-top:9px">Items (${S.items.length})</div>
+        ${S.items.map(i=>`<div class="on-item">${i.img?`<img src="${esc(i.img)}" crossorigin="anonymous">`:''}<div><div class="nm">${esc(i.name)}</div><div class="qd">Qty ${(+i.qty).toFixed(0)}</div><div class="pr">$${money((+i.qty)*(+i.price))}</div></div></div>`).join('')}
+      </div>
+      <div class="on-tot"><span>Subtotal (${S.items.length} items)</span><span>$${money(sub())}</span></div>
+      <div class="on-tot"><span>Shipping</span><span>Free</span></div>
+      <div class="on-tot"><span>Estimated taxes</span><span>$${money(tax())}</span></div>
+      <div class="on-tot g"><span>Total</span><span>$${money(total())}</span></div>
+      <div class="on-box" style="margin-top:11px"><div class="k">Payment</div>${esc(S.pay.method)} ending in ${esc(S.pay.last4)}</div>
+      <div class="on-foot">Walmart.com · 1-800-966-6546<br>Questions? Visit our <u>help center</u>.<br>© Walmart Stores, Inc. Bentonville, AR 72716</div>
+    </div>
+  </div>`;
+}
+
+function renderEditor(){
+  $('#editor').innerHTML=S.items.map((it,i)=>`<div class="row3">
+    <div><label>Item</label><input data-i="${i}" data-k="name" value="${esc(it.name)}"></div>
+    <div><label>Qty</label><input data-i="${i}" data-k="qty" type="number" step="0.01" value="${it.qty}"></div>
+    <div><label>Price</label><input data-i="${i}" data-k="price" type="number" step="0.01" value="${it.price}"></div>
+    <button class="mini" data-del="${i}">×</button></div>`).join('');
+}
+
+function get(p){return p.split('.').reduce((o,k)=>o?.[k],S)}
+function set(p,v){const k=p.split('.');const l=k.pop();k.reduce((x,y)=>x[y],S)[l]=v}
+
+document.querySelectorAll('[data-bind]').forEach(el=>{
+  el.value=get(el.dataset.bind);
+  el.addEventListener('input',()=>{set(el.dataset.bind,el.value);renderPaper()});
+});
+$('#template').addEventListener('change',e=>{S.template=e.target.value;renderPaper()});
+$('#editor').addEventListener('input',e=>{const t=e.target;if(t.dataset.k===undefined)return;S.items[+t.dataset.i][t.dataset.k]=t.value;renderPaper()});
+$('#editor').addEventListener('click',e=>{const d=e.target.dataset.del;if(d===undefined)return;S.items.splice(+d,1);renderEditor();renderPaper()});
+$('#addItem').onclick=()=>{S.items.push({name:'NEW ITEM',upc:'0'+Math.floor(Math.random()*1e11).toString().padStart(11,'0'),qty:1,price:0,img:''});renderEditor();renderPaper()};
+
+$('#rand').onclick=()=>{
+  const r=n=>String(Math.floor(Math.random()*10**n)).padStart(n,'0');
+  S.meta.tr=r(5);S.meta.op=r(6);S.meta.te=r(2);S.pay.auth=r(5)+'G';S.pay.ref=r(10);S.pay.last4=r(4);
+  S.pay.trans=r(15);S.pay.term=r(8);S.pay.val='HH'+r(2);S.pay.aac=r(4)+'B'+r(8)+'C1DF'+r(2);S.meta.fb=r(2)+'LSFXBJ'+r(3);
+  S.meta.tc=[r(4),r(4),r(4),r(4),r(4)].join(' ');
+  const n=new Date();S.meta.date=n.toISOString().slice(0,10);S.meta.time=n.toTimeString().slice(0,8);
+  document.querySelectorAll('[data-bind]').forEach(el=>el.value=get(el.dataset.bind));renderPaper();
+};
+$('#reset').onclick=()=>{S=base();document.querySelectorAll('[data-bind]').forEach(el=>el.value=get(el.dataset.bind));$('#template').value='store';renderEditor();renderPaper()};
+$('#pasteToggle').onclick=()=>{const w=$('#pasteWrap');w.style.display=w.style.display==='none'?'block':'none'};
+
+const PROXIES=[
+  u=>'https://r.jina.ai/'+u,
+  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+  u=>'https://corsproxy.io/?'+encodeURIComponent(u)
+];
+function say(m,c){const s=$('#status');s.textContent=m;s.className='status '+(c||'')}
+async function grab(u){for(const p of PROXIES){try{const r=await fetch(p(u));if(!r.ok)continue;const t=await r.text();if(t&&t.length>400)return t}catch(e){}}return null}
+
+function extract(txt){
+  let title='',img='',price='';
+  if(/<meta|<!DOCTYPE|<html/i.test(txt)){
+    const d=new DOMParser().parseFromString(txt,'text/html');
+    title=d.querySelector('meta[property="og:title"]')?.content||d.title||'';
+    img=d.querySelector('meta[property="og:image"]')?.content||'';
+    price=d.querySelector('meta[property="product:price:amount"]')?.content||d.querySelector('meta[itemprop="price"]')?.content||'';
+    if(!price)for(const s of d.querySelectorAll('script[type="application/ld+json"]')){try{const j=JSON.parse(s.textContent);const o=[].concat(j.offers||[])[0];if(o?.price)price=o.price}catch(e){}}
+  }else{
+    title=(txt.match(/^Title:\s*(.+)$/m)||[])[1]||(txt.match(/^#\s+(.+)$/m)||[])[1]||'';
+    img=(txt.match(/!\[[^\]]*\]\((https:\/\/i5\.walmartimages\.com[^)\s]+)\)/)||[])[1]||'';
+    price=(txt.match(/\$\s?(\d{1,4}\.\d{2})/)||[])[1]||'';
+  }
+  title=title.replace(/\s*[-–|]\s*Walmart\.com.*$/i,'').trim();
+  return{title:title.slice(0,80),img,price};
+}
+function useProduct(p){
+  if(!p.title&&!p.price){say('Could not read that page. Paste the source instead.','err');return}
+  const upc='0'+Math.floor(Math.random()*1e11).toString().padStart(11,'0');
+  S.items.push({name:(p.title||'WALMART ITEM').toUpperCase().slice(0,22),upc,img:p.img||'',qty:1,price:p.price?+p.price:0});
+  renderEditor();renderPaper();
+  say('Added: '+(p.title||'item')+(p.price?' — $'+p.price:'')+' (check price)','ok');
+}
+$('#fetch').onclick=async()=>{
+  const u=$('#url').value.trim();
+  if(!/^https?:\/\//.test(u)){say('Enter a full https:// URL','err');return}
+  say('Fetching…');
+  const t=await grab(u);
+  if(!t){say('Blocked. Open the page, view source, and use "Paste source".','err');return}
+  useProduct(extract(t));
+};
+$('#parsePaste').onclick=()=>{const t=$('#src').value.trim();if(!t){say('Nothing pasted','err');return}useProduct(extract(t))};
+
+$('#png').onclick=async()=>{
+  try{
+    const c=await html2canvas($('#paper'),{scale:3,backgroundColor:'#fff',useCORS:true,logging:false});
+    const a=document.createElement('a');a.download='walmart-receipt.png';a.href=c.toDataURL('image/png');a.click();
+  }catch(e){say('PNG export failed — use Print','err')}
+};
+$('#print').onclick=()=>window.print();
+
+renderEditor();
+renderPaper();
+</script>
+</body>
+</html>
